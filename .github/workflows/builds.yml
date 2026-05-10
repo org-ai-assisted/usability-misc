@@ -6,6 +6,13 @@ on:
             - 'usr/share/usability-misc/dist-installer-cli-standalone'
             - '.github/workflows/builds.yml'
 
+## Top-level least-privilege cap (OSSF Scorecard Token-Permissions).
+## The 'changes' job sets its own 'permissions: pull-requests: read'
+## (read-only); the 'build' job only checks out and runs scripts;
+## no API writes needed at workflow scope.
+permissions:
+    contents: read
+
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
