@@ -73,6 +73,34 @@ jobs:
             - uses: actions/checkout@v5
               with:
                   persist-credentials: false
+
+            ## Debian-family containers ship
+            ## /etc/apt/apt.conf.d/docker-clean which wipes
+            ## /var/cache/apt/archives after every install. Drop it
+            ## and tell apt to keep downloaded .debs so the cache
+            ## action below can save them at end-of-job. Skipped on
+            ## Fedora (dnf, not apt).
+            - name: Configure apt to keep downloaded debs
+              if: ${{ !startsWith(matrix.image, 'fedora') }}
+              run: |
+                  rm -f /etc/apt/apt.conf.d/docker-clean
+                  printf '%s\n' 'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+                      > /etc/apt/apt.conf.d/keep-cache
+
+            ## First-party actions/cache. Caches the .deb archive
+            ## directory so apt-get install reuses cached debs
+            ## instead of redownloading. Per-image keying because
+            ## different distros have different package versions.
+            ## Skipped on Fedora (no apt cache to populate).
+            - name: Cache apt packages
+              if: ${{ !startsWith(matrix.image, 'fedora') }}
+              uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
+              with:
+                  path: /var/cache/apt/archives
+                  key: ${{ runner.os }}-apt-${{ matrix.image }}-${{ hashFiles('.github/workflows/builds.yml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-apt-${{ matrix.image }}-
+
             - name: System Basic Packages
               run: |
                   if command -v apt-get; then
