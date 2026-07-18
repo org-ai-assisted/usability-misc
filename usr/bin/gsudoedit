@@ -4,7 +4,26 @@
 ## See the file COPYING for copying conditions.
 
 #set -x
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
+set -o errtrace
+shopt -s inherit_errexit
+shopt -s shift_verbose
+
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/has.sh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.sh
+
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/askpass_gui_env.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/askpass_gui_env.bsh
+
+gsudoedit_gui_error() {
+  ## generic_gui_message renders under both Wayland and X11 (it applies the Qt
+  ## QPA fallback itself), so an error stays visible instead of vanishing into
+  ## an invisible stderr when launched from a .desktop entry with no Terminal=.
+  /usr/libexec/msgcollector/generic_gui_message \
+    error "Edit file with superuser rights" "$1" "" ok || true
+}
 
 ## Cannot check if it is a file first because then no new files could be created.
 # if ! test -f "$@" ; then
@@ -29,4 +48,25 @@ set -e
 # export askpass_title
 # export askpass_message
 
-SUDO_ASKPASS=/usr/libexec/usability-misc/sudo-askpass-gui sudoedit --askpass -- "$@"
+## Recover the graphical-session environment in this parent wrapper -- not only
+## in the askpass child -- so the error dialog below can render and sudoedit's
+## askpass inherits a usable WAYLAND_DISPLAY/XDG_RUNTIME_DIR. A child's exports
+## cannot propagate back here, and a minimal compositor may advertise neither
+## WAYLAND_DISPLAY nor DISPLAY even though a live socket exists.
+askpass_gui_env
+
+## Preflight: a .desktop launcher has no Terminal=, so without a visible GUI
+## error path any failure below is silent. yad is required to show the password
+## prompt; report its absence instead of failing silently. A genuinely absent
+## display is not pre-checked here (a minimal compositor may export no display
+## variable at all); it surfaces as a failed sudoedit below.
+if ! has yad; then
+  gsudoedit_gui_error "Cannot show the password prompt because 'yad' is not installed."
+  exit 1
+fi
+
+if ! SUDO_ASKPASS=/usr/libexec/usability-misc/sudo-askpass-gui sudoedit --askpass -- "$@"; then
+  gsudoedit_gui_error "Editing the file with superuser rights failed or was cancelled:
+'$*'"
+  exit 1
+fi
