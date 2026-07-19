@@ -21,7 +21,7 @@ gsudoedit_gui_error() {
   ## generic_gui_message renders under both Wayland and X11 (it applies the Qt
   ## QPA fallback itself), so an error stays visible instead of vanishing into
   ## an invisible stderr when launched from a .desktop entry with no Terminal=.
-  /usr/libexec/msgcollector/generic_gui_message \
+  /usr/libexec/msgcollector/generic_gui_message.py \
     error "Edit file with superuser rights" "$1" "" ok || true
 }
 
