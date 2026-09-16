@@ -1742,8 +1742,8 @@ check_installed_debian() {
 
 
 disable_kvm_virt_at_load() {
-  local kvm_variant kvm_kernel_modules_unload_failed \
-  kvm_kernel_module_reload_success kvm_kernel_module_found
+  ## The KVM hot-unload logic below is commented out; its locals (kvm_variant,
+  ## kvm_kernel_module_found, ...) are declared only when it is re-enabled.
 
   ## https://github.com/Kicksecure/usability-misc/blob/master/usr/lib/modprobe.d/usability-misc.conf
 
