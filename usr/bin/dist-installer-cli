@@ -3115,14 +3115,9 @@ get_transfer_cmd() {
 handle_exit_trap() {
   local exit_code=$?
 
-  ## Disarm traps first so a failure inside the handler cannot re-enter it.
   trap - ERR EXIT HUP INT QUIT ABRT ALRM TERM
-
-  ## Ignore SIGPIPE so the handler is not killed (141) on its own diagnostic
-  ## writes when the reader closed early (piped to 'head', pager quit); it must
-  ## still report the real exit code and run end_exit cleanup (lock, temp dir).
-  trap '' PIPE
-  ## style-ok: R-011 -- a terminal error handler must not abort on its own EPIPE writes.
+  ## style-ok: R-011 -- disabling strict mode aspects is intentional to prevent
+  ## the exit routine from crashing.
   set +o errexit
   set +o pipefail
 
@@ -4771,11 +4766,7 @@ run_installer() {
 
 if was_executed "${BASH_SOURCE[0]}"; then
   true "INFO: Running the install script because it was executed."
-  ## Enforce a single instance per user. Sourcing lockfile.sh re-execs this
-  ## script under 'flock' (held for the whole process lifetime, released
-  ## automatically on exit). LOCK_NAME keeps dist-installer-cli and its
-  ## virtualbox-installer-cli symlink mutually exclusive and stops lockfile.sh
-  ## from interpreting "${1}" as a lock key.
+  ## Re-exec under flock.
   LOCK_NAME="dist-installer-cli"
   # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/lockfile.sh
   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/lockfile.sh
