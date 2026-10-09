@@ -1,0 +1,13 @@
+# shellcheck configuration for the usability-misc repository.
+#
+# SC2154 - referenced-but-not-assigned: scripts source helper-scripts that
+# export many vars at runtime.
+#
+# SC2034 - assigned-but-unused: "config flag" vars are read by sourced child
+# scripts.
+#
+# Do not add a project-wide override for SC1090; all of our source statements,
+# with the exception of sourced config files, must use shellcheck directives
+# pointing at the file being sourced. Use local SC1090 exceptions where needed.
+disable=SC2154
+disable=SC2034
