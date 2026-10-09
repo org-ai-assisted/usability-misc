@@ -8,6 +8,10 @@
 
 ## Dependency of derivative-maker.
 
+## Variables are assigned by name in set_default_variable (printf -v), which
+## shellcheck cannot follow.
+# shellcheck disable=SC2154
+
 set -o errexit
 set -o nounset
 set -o pipefail
