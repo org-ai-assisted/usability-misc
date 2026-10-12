@@ -8,8 +8,7 @@
 
 ## Dependency of derivative-maker.
 
-## Variables are assigned by name in set_default_variable (printf -v), which
-## shellcheck cannot follow.
+## Variables are assigned by name in set_default_variable.
 # shellcheck disable=SC2154
 
 set -o errexit
@@ -46,8 +45,6 @@ set_default_variable() {
   if [ -z "${!var_name:-}" ]; then
     printf '%s\n' "INFO: Variable '${var_name}' is already set? No. - Setting:
                 ${var_name}='${var_content}'"
-    ## printf -v, not eval: a value containing a quote must be stored verbatim,
-    ## never parsed as shell code by this root script.
     printf -v "${var_name}" '%s' "${var_content}"
     return 0
   fi
