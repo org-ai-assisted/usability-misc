@@ -3120,6 +3120,9 @@ handle_exit_trap() {
   ## the exit routine from crashing.
   set +o errexit
   set +o pipefail
+  ## If our stdout gets closed during exit, we will be sent a SIGPIPE. We don't
+  ## want the exit handler to die if this happens.
+  trap '' PIPE
 
   handle_exit "${exit_code}" "${BASH_LINENO[0]:-0}"
 }
