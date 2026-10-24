@@ -1,0 +1,8 @@
+## dist-installer-cli-standalone is a build ARTIFACT: build-dist-installer-cli
+## inlines usr/bin/dist-installer-cli plus every helper-scripts source it pulls
+## in, so it cannot be hand-edited and is validated by the generator's own
+## shellcheck. Mark it linguist-generated so the dist-ai-style gate skips the
+## STYLE + FORMAT tier for it (secret / size / structural checks still run) --
+## the durable, default-safe exemption, so a regenerated copy commits with no
+## per-commit ALLOW_STYLE_COMMIT to recall.
+usr/share/usability-misc/dist-installer-cli-standalone linguist-generated
