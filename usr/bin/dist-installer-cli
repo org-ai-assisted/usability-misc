@@ -1066,6 +1066,11 @@ check_vm_registered_virtualbox() {
   case "${guest}" in
     whonix)
       ## Test if machine exists.
+      ## Dry-run model: side-effecting commands are skipped, but a read-only
+      ## query whose RESULT drives later logic must still run or it returns
+      ## 0/empty and corrupts that logic (a skipped showvminfo returns 0 =
+      ## "every VM already exists"). Force such queries with
+      ## dry_run_skip_commands=0.
       workstation_exists=0
       gateway_exists=0
       if dry_run_skip_commands=0 run_as_target_user "${vboxmanage_locale_english[@]}" showvminfo "${guest_full_vm_name_gateway}" >/dev/null 2>&1 ; then
@@ -2753,6 +2758,13 @@ virtualbox_installation_failure_debug() {
   log_run notice cat -- "${make_log}" || true
 }
 
+## A dry-run cannot simulate the VirtualBox install as a sequence: it would add
+## the Oracle repo, then an apt-cache version query returns nothing (repo never
+## added) and the later install logic breaks. So skip the whole block as a unit,
+## AFTER install_package_*_common has set pkg_mngr_check_installed. A dry-run
+## reports "would install VirtualBox"; it does NOT run the install's own
+## pre-checks, so SUCCESS means the simulated flow completed, not that a real
+## install would succeed on this host.
 virtualbox_install_skip_under_dry_run() {
   [ "${dry_run_skip_commands}" = "1" ] || return 1
   log notice "${hypervisor_pretty} Installation: Skipped (dry-run) -- VirtualBox and its Oracle repository would be installed here."
