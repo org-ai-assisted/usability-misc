@@ -1,124 +1,36 @@
+---
+## Copyright (C) 2026 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
+## See the file COPYING for copying conditions.
+
+## AI-Assisted
+
+## Thin wrapper: the dist-installer-cli container-build smoke lane (distro matrix,
+## default / VirtualBox / onion / Oracle / locale / source paths + the cross-user
+## install regression) lives in developer-meta-files, and its setup + regression
+## scripts live in org-ai-assisted/dist-ai (ci/dist-installer-cli-build/*). This
+## file only points the reusable workflow at this repo's standalone.
+##
+## Reusable:
+## https://github.com/org-ai-assisted/developer-meta-files/blob/master/.github/workflows/reusable-dist-installer-cli-build.yml
+
 name: docker build
-# on: [push]
+
 on:
-    push:
-        paths:
-            - 'usr/share/usability-misc/dist-installer-cli-standalone'
-            - '.github/workflows/builds.yml'
-            ## The workflow's steps now live in ci/ scripts; a change to one must
-            ## trigger the workflow, or broken CI logic could merge untested.
-            - 'ci/**'
-    workflow_dispatch:
+  push:
+    paths:
+      - 'usr/share/usability-misc/dist-installer-cli-standalone'
+      - '.github/workflows/builds.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    ## No 'changes:' job: the workflow's own 'on.push.paths:' filter already
-    ## gates execution to commits touching the installer standalone OR this
-    ## workflow file, so a dorny/paths-filter job would be redundant. It would
-    ## also fail to start: the repo's Actions allowlist permits only
-    ## github-owned + verified creators, and dorny/paths-filter is neither.
-
-    build:
-        ## CI runs only where we enabled it. Unset variable -> the job is
-        ## skipped, no runner is allocated, and the run stays green: upstream
-        ## and forks are never handed a red X for a lane they did not opt into.
-        ## A fork that WANTS our CI sets the same variable in its own repo.
-        if: vars.CI_ENABLED_ORG_AI_ASSISTED == 'true'
-        ## Github takes too long to set the current latest image, this is
-        ## why we set it manually.
-        ##  https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-        runs-on: ubuntu-24.04
-        timeout-minutes: 10
-        strategy:
-            fail-fast: false
-            #fail-fast: true
-            matrix:
-                include:
-                    - image: fedora:41
-                    - image: fedora:42
-                    - image: fedora:43
-                    #- image: fedora:latest
-                    #- image: fedora:rawhide
-                    ## Debian bullseye: EOL
-                    ## E: The repository 'https://deb.debian.org/debian bullseye-backports Release' does not have a Release file.
-                    #- image: debian:oldoldstable
-                    - image: debian:oldstable
-                    - image: debian:stable
-                    - image: debian:testing
-                    - image: debian:unstable
-                    - image: ubuntu:latest
-                    - image: linuxmintd/mint22.1-amd64:latest
-                    - image: kalilinux/kali-rolling
-
-        container:
-            image: ${{ matrix.image }}
-
-        steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-              with:
-                  persist-credentials: false
-            - name: System Basic Packages
-              run: ./ci/system-basic-packages.sh
-            - name: System information
-              run: ./ci/system-information.sh
-            - name: Enable Services
-              run: ./ci/enable-services.sh
-            - name: Normal user with sudo privileges
-              run: ./ci/normal-user-with-sudo.sh
-
-            - name: Run default dist-installer-cli - Clearnet
-              run: sudo -u user -- usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci
-            - name: Run default dist-installer-cli - Onion
-              run: sudo -u user -- usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci --onion
-
-            - name: Run VirtualBox Installer - default repository - Clearnet
-              run: sudo -u user -- usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci --virtualbox-only
-            - name: Run VirtualBox Installer - default repository - Onion
-              run: sudo -u user -- usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci --virtualbox-only --onion
-
-            - name: Run VirtualBox Installer - Oracle repository - Clearnet
-              run: |
-                  if ! grep --ignore-case "kali" /etc/os-release >/dev/null 2>&1; then
-                    sudo -u user -- usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci --virtualbox-only --oracle-repo
-                  fi
-            - name: Run VirtualBox Installer - Oracle repository - Onion
-              run: |
-                  if ! grep --ignore-case "kali" /etc/os-release >/dev/null 2>&1; then
-                    sudo -u user -- usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci --virtualbox-only --oracle-repo --onion
-                  fi
-
-            - name: Run VirtualBox Installer - back to default repository
-              run: ./ci/vbox-back-to-default-repo.sh
-            - name: Run VirtualBox Installer - back to default repository - Clearnet
-              run: sudo -u user -- usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci --virtualbox-only --onion
-            - name: Run with non-English locale - Clearnet
-              run: sudo -u user -- env LC_ALL=ru_RU.UTF-8 LANG=ru_RU.UTF-8 LANGUAGE=ru_RU usr/share/usability-misc/dist-installer-cli-standalone --non-interactive --log-level=debug --no-boot --dev --ci --import-only=both --destroy-existing-guest
-            ## When `source`d the script should exit in less than a second because it should not perform actual work.
-            ## If it was running longer that would mean that it can no longer be `source`d without actually running.
-            - name: Run Bash to test 'source'ing the script
-              run: sudo -u user -- timeout --kill-after=5 5 bash -c "set -x && source usr/share/usability-misc/dist-installer-cli-standalone"
-
-            - name: Run Installer ShellCheck
-              ## SC2317 (unreachable), SC2034 (unused), SC2218 (function only
-              ## defined later), SC2329 (function never invoked) all fire
-              ## false-positives on the standalone because helper-scripts
-              ## functions get inlined verbatim - shellcheck cannot trace
-              ## the indirect callsites (e.g. log_run dispatched by name)
-              ## or the inlined-helpers' function-resolution-order. Exclude
-              ## these checks for the standalone specifically; the source
-              ## template (usr/bin/dist-installer-cli) and the helper-scripts
-              ## sources are linted normally elsewhere with full context.
-              uses: org-ai-assisted/developer-meta-files/.github/actions/shellcheck@master
-              with:
-                paths: 'usr/share/usability-misc/dist-installer-cli-standalone'
-                excludes: 'SC2034,SC2218,SC2317,SC2329'
-
-            ## Requires helper-scripts.
-            # - name: Run build-dist-installer-cli
-            #   run: sudo -u user -- timeout --kill-after=5 5 bash -x -c "usr/share/usability-misc/build-dist-installer-cli"
+  build:
+    uses: org-ai-assisted/developer-meta-files/.github/workflows/reusable-dist-installer-cli-build.yml@master
+    with:
+      standalone-path: usr/share/usability-misc/dist-installer-cli-standalone
