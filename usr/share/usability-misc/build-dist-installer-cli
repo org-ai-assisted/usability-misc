@@ -34,8 +34,16 @@ template="${toplevel}/usr/bin/dist-installer-cli"
 base_name_target="${target##*/}"
 
 ## debian/control cannot Build-Depend on helper-scripts without severely
-## complicating our build setup.
-helper_path="${HELPER_SCRIPTS_PATH:-}/usr/libexec/helper-scripts/"
+## complicating our build setup. Every supported caller exports
+## HELPER_SCRIPTS_PATH at the pinned helper-scripts checkout (help-steps/pre,
+## parse-cmd, variables; dist-ai-tests-all in CI). Refuse when unset rather
+## than silently inlining the installed /usr/libexec copy, which drifts from
+## the pinned checkout.
+if [ -z "${HELPER_SCRIPTS_PATH:-}" ]; then
+  printf '%s\n' "${0}: ERROR: HELPER_SCRIPTS_PATH is unset. Set it to the helper-scripts checkout (the build and CI export it)." >&2
+  exit 1
+fi
+helper_path="${HELPER_SCRIPTS_PATH}/usr/libexec/helper-scripts/"
 
 if ! test -d "${helper_path}" ; then
   printf '%s\n' "${0}: ERROR: directory helper_path '${helper_path}' does not exist!" >&2
@@ -91,7 +99,7 @@ paste_helper_file() {
   local display="${canonical_helper_dir}${file#"${helper_dir}"}"
 
   if [[ -n "${pasted_helper_files[${display}]+x}" ]]; then
-    printf '##### SKIP duplicate source import from file %s\n' "${display}"
+    printf '%s\n' "##### SKIP duplicate source import from file ${display}"
     return 0
   fi
 
@@ -102,9 +110,9 @@ paste_helper_file() {
     exit 1
   fi
 
-  printf '##### BEGIN pasted by %s from file %s\n' "${0##*/}" "${display}"
+  printf '%s\n' "##### BEGIN pasted by ${0##*/} from file ${display}"
   process_file "${file}"
-  printf '##### END pasted by %s from file %s\n' "${0##*/}" "${display}"
+  printf '%s\n' "##### END pasted by ${0##*/} from file ${display}"
 }
 
 process_file() {
@@ -126,6 +134,7 @@ cp -- "${template}" "${target}"
 
 tmp_target="$(mktemp "${target}.tmp.XXXXXXXXXX")"
 cleanup_handler() {
+  ## style-ok: no-safe-rm -- own mktemp temp file; build-time generator, no shell shadow
   rm -f -- "${tmp_target}"
 }
 trap cleanup_handler EXIT
