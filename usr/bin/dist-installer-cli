@@ -57,7 +57,7 @@ declare version me start_time dialog_title license adrelanos_signify \
   transfer_output_dir_opt transfer_output_file_opt transfer_verbosity_opt \
   transfer_speed_optimization_opt transfer_proxy_prefix \
   transfer_proxy_suffix proxy curl_transfer_proxy curl_opt_ssl \
-  url_guest_file url_origin signify_key signify_signer url_domain \
+  url_guest_file url_origin signify_keys signify_signers url_domain \
   url_version download_flag checkhash interface_name \
   can_boot_virtualbox_guest_vms DIST_APTGETOPT DIST_APTGETOPT_SERIALIZED \
   id_of_user dkms_mok_path temp_folder dry_run_skip_commands
@@ -3860,9 +3860,9 @@ get_download_links() {
       else
         url_version_template="VersionNew"
       fi
-      ## image signer
-      signify_key="${adrelanos_signify}"
-      signify_signer="adrelanos"
+      ## image signer(s): a valid signature from any listed signer is accepted
+      signify_keys=( "${adrelanos_signify}" )
+      signify_signers=( "adrelanos" )
       ## url directory to find files of the selected hypervisor
       url_domain="${url_download}/ova"
       ## image file extension
@@ -3877,9 +3877,11 @@ get_download_links() {
       else
         url_version_template="Version_KVM"
       fi
-      ## image signer
-      signify_key="${hulahoop_signify}"
-      signify_signer="hulahoop"
+      ## image signer(s): KVM image signing moved from HulaHoop to adrelanos,
+      ## so accept either -- current releases (adrelanos) and older ones
+      ## (HulaHoop) both verify. adrelanos is tried first.
+      signify_keys=( "${adrelanos_signify}" "${hulahoop_signify}" )
+      signify_signers=( "adrelanos" "hulahoop" )
       ## url directory to find files of the selected hypervisor
       url_domain="${url_download}/libvirt"
       ## image file extension
@@ -3929,21 +3931,32 @@ should_download() {
 
 
 ## Check signature of signed checksum.
+## Accepts a valid signature from ANY signer listed for the selected hypervisor
+## (see signify_keys / signify_signers). This keeps verification working across a
+## signing-key handoff (e.g. KVM moved from HulaHoop to adrelanos) without
+## weakening it: every candidate key is one shipped, trusted Whonix signer.
 check_signature() {
-  local signify_checksum_file signify_pub_file
+  local index signify_checksum_file signify_pub_file signify_signer
 
   signify_checksum_file="${1}"
-  log info "Signify key:\n${signify_key}"
   log info "Verifying file: '${signify_checksum_file}'"
-  signify_pub_file="${log_dir_cur}/${signify_signer}.pub"
-  ## Newline '\n' at the end needed. Otherwise error:
-  #signify-openbsd: missing new line after base64 in /home/user/dist-installer-cli-download/logs/1/adrelanos.pub
-  printf '%s\n' "${signify_key}" | run_as_target_user tee -- "${signify_pub_file}" >/dev/null
+  for index in "${!signify_keys[@]}"; do
+    signify_signer="${signify_signers[index]}"
+    signify_pub_file="${log_dir_cur}/${signify_signer}.pub"
+    log info "Trying signer: '${signify_signer}'"
+    ## Newline '\n' at the end needed. Otherwise error:
+    #signify-openbsd: missing new line after base64 in /home/user/dist-installer-cli-download/logs/1/adrelanos.pub
+    printf '%s\n' "${signify_keys[index]}" | run_as_target_user tee -- "${signify_pub_file}" >/dev/null
+    if log_run info run_signify -V -p "${signify_pub_file}" \
+      -m "${signify_checksum_file}"; then
+      log info "Signify Signature Verification: 'success' (signer: '${signify_signer}')"
+      return 0
+    fi
+    log info "Signer '${signify_signer}' did not match; trying next."
+  done
 
-  log_run info run_signify -V -p "${signify_pub_file}" \
-    -m "${signify_checksum_file}" || return 1
-
-  log info "Signify Signature Verification: 'success'"
+  log info "Signify Signature Verification: 'FAIL' - no listed signer matched."
+  return 1
 }
 
 
