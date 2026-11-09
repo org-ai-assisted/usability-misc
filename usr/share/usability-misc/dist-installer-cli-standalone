@@ -769,7 +769,7 @@ string_bsh_tests() {
   run_test "safe_filename: rejects control char newline" validate_safe_filename 1 test_value $'hello\nworld'
   run_test "safe_filename: rejects leading dash" validate_safe_filename 1 test_value "-option"
   run_test "safe_filename: accepts colon" validate_safe_filename 0 test_value "test:test"
-  run_test "safe_filename: rejects overlong name" validate_safe_filename 1 test_value "$(printf 'a%.0s' {1..256})"
+  run_test "safe_filename: rejects overlong name" validate_safe_filename 1 test_value "$(head -c 256 /dev/zero | tr '\0' 'a')"
   run_test "safe_filename: rejects unicode" validate_safe_filename 1 test_value $'caf\xC3\xA9'
 
   run_test "one_line: rejects empty" check_is_not_empty_and_only_one_line 1 test_value ""
@@ -1024,65 +1024,65 @@ get_colors_test() {
 
   ## --- Colors -------------------------------------------------------
   ## Foreground colors (8-color ANSI). Each line prints the color name in that color.
-  printf '%b\n' "${red}red${nocolor}"
-  printf '%b\n' "${green}green${nocolor}"
-  printf '%b\n' "${yellow}yellow${nocolor}"
-  printf '%b\n' "${blue}blue${nocolor}"
-  printf '%b\n' "${magenta}magenta${nocolor}"
-  printf '%b\n' "${cyan}cyan${nocolor}"
-  printf '%b\n' "${white}white${nocolor}"
+  printf '%s\n' "${red}red${nocolor}"
+  printf '%s\n' "${green}green${nocolor}"
+  printf '%s\n' "${yellow}yellow${nocolor}"
+  printf '%s\n' "${blue}blue${nocolor}"
+  printf '%s\n' "${magenta}magenta${nocolor}"
+  printf '%s\n' "${cyan}cyan${nocolor}"
+  printf '%s\n' "${white}white${nocolor}"
 
   ## Reset to terminal default foreground color (may differ from white).
-  printf '%b\n' "${default}default${nocolor}"
+  printf '%s\n' "${default}default${nocolor}"
 
   ## --- Text attributes ----------------------------------------------
   ## Bold / increased intensity.
-  printf '%b\n' "${bold}bold${nocolor}"
+  printf '%s\n' "${bold}bold${nocolor}"
 
   ## Cancel bold / intensity (may not affect underline/italic).
-  printf '%b\n' "${nobold}nobold${nocolor}"
+  printf '%s\n' "${nobold}nobold${nocolor}"
 
   ## Italic (may be unsupported or rendered as reverse/underline on some terminals).
-  printf '%b\n' "${italic}italic${nocolor}"
+  printf '%s\n' "${italic}italic${nocolor}"
 
   ## Cancel italic (not tested by default; usually harmless).
-  #printf '%b\n' "${eitalic}eitalic${nocolor}"
+  #printf '%s\n' "${eitalic}eitalic${nocolor}"
 
   ## Underline.
-  printf '%b\n' "${underline}underline${nocolor}"
+  printf '%s\n' "${underline}underline${nocolor}"
 
   ## Cancel underline (not tested by default; usually harmless).
-  #printf '%b\n' "${nounderline}nounderline${nocolor}"
+  #printf '%s\n' "${nounderline}nounderline${nocolor}"
 
   ## Standout / reverse video (often swaps foreground/background).
-  printf '%b\n' "${stout}stout${nocolor}"
+  printf '%s\n' "${stout}stout${nocolor}"
 
   ## Cancel standout / reverse video.
-  printf '%b\n' "${estout}estout${nocolor}"
+  printf '%s\n' "${estout}estout${nocolor}"
 
   ## Blinking text.
-  printf '%b\n' "${blink}blink${nocolor}"
+  printf '%s\n' "${blink}blink${nocolor}"
 
   ## --- Cursor / screen control --------------------------------------
   ## Hide cursor, print "hide", then show cursor again.
   ## Useful to confirm the escape sequences do not break output.
-  printf '%b\n' "${hide}hide${show}${nocolor}"
+  printf '%s\n' "${hide}hide${show}${nocolor}"
 
   ## Cursor save/restore (not tested by default because it can look odd
   ## depending on where the cursor is when printed).
-  #printf '%b\n' "${save}save${load}${nocolor}"
+  #printf '%s\n' "${save}save${load}${nocolor}"
 
   ## Erase to end of display (J) / end of line (K) / beginning of line (1K)
   ## / whole line (2K). These are hard to "see" in a simple print, but
   ## included for completeness.
-  #printf '%b\n' "${eed}eed${nocolor}"
-  #printf '%b\n' "${eel}eel${nocolor}"
-  #printf '%b\n' "${ebl}ebl${nocolor}"
-  #printf '%b\n' "${ewl}ewl${nocolor}"
+  #printf '%s\n' "${eed}eed${nocolor}"
+  #printf '%s\n' "${eel}eel${nocolor}"
+  #printf '%s\n' "${ebl}ebl${nocolor}"
+  #printf '%s\n' "${ewl}ewl${nocolor}"
 
   ## Backspace character. Typically moves cursor one column left; visual
   ## effect depends on surrounding output.
-  #printf '%b\n' "${back}back${nocolor}"
+  #printf '%s\n' "${back}back${nocolor}"
 
   ## Drawing characters capability is intentionally unsupported in this
   ## modern implementation; kept for compatibility (usually empty).
@@ -1529,7 +1529,7 @@ process_backtrace() {
       fi
       if [ "${cp}" = "1" ]; then
          ## reached init [PID 1] -> end of trace
-         trace="${trace} : init\n"
+         trace="${trace} : init"$'\n'
          break
       fi
       if [ "${cp}" = "0" ] || ! [[ "${cp}" =~ ^[0-9]+$ ]]; then
@@ -1563,11 +1563,11 @@ process_backtrace() {
          ps_p_output="$(ps --no-headers -p "${cp}")" || true
          printf '%s\n' "process_backtrace ERROR: /proc/${cp}/status missing | ps: ${ps_p_output}" >&2
       fi
-      trace="${trace} : ${cmdline}\n"
+      trace="${trace} : ${cmdline}"$'\n'
       cp="${pp}"
    done
    ## tac to print init-first; grep --line-number renumbers from 1.
-   printf '%b' "${trace}" | tac | grep --line-number -- ":" || true
+   printf '%s' "${trace}" | tac | grep --line-number -- ":" || true
 }
 ##### END pasted by build-dist-installer-cli from file /usr/libexec/helper-scripts/trace.bsh
 
@@ -5066,10 +5066,14 @@ install_virtualbox_debian_common_begin() {
     ## udev:
     ## https://www.virtualbox.org/ticket/21804
     ##
-    ## gcc:
-    ## virtualbox-"${virtualbox_version}" by virtualbox.org (Oracle) `Recommends:` `gcc`
-    ## Otherwise kernel modules will not be compiled during installation.
-    install_pkg gcc udev
+    ## gcc, make, binutils:
+    ## virtualbox-"${virtualbox_version}" by virtualbox.org (Oracle) lists the kernel-module
+    ## build toolchain only under `Recommends:`, which Kicksecure drops via
+    ## `--no-install-recommends`. Without the full toolchain the modules are neither compiled at
+    ## install time nor rebuilt by vboxdrv.service at the next boot, so vboxdrv is absent after a
+    ## kernel update until a manual rebuild. gcc alone is insufficient: the build also needs make
+    ## and binutils (ld, objcopy).
+    install_pkg gcc make binutils udev
   fi
 
   virtualbox_cache_version_cmd=('apt-cache' 'search' '--names-only' '--quiet' '^virtualbox-[[:digit:]]{1,2}\.[[:digit:]]{1,2}$')
