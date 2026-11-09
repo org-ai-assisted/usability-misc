@@ -2864,10 +2864,14 @@ install_virtualbox_debian_common_begin() {
     ## udev:
     ## https://www.virtualbox.org/ticket/21804
     ##
-    ## gcc:
-    ## virtualbox-"${virtualbox_version}" by virtualbox.org (Oracle) `Recommends:` `gcc`
-    ## Otherwise kernel modules will not be compiled during installation.
-    install_pkg gcc udev
+    ## gcc, make, binutils:
+    ## virtualbox-"${virtualbox_version}" by virtualbox.org (Oracle) lists the kernel-module
+    ## build toolchain only under `Recommends:`, which Kicksecure drops via
+    ## `--no-install-recommends`. Without the full toolchain the modules are neither compiled at
+    ## install time nor rebuilt by vboxdrv.service at the next boot, so vboxdrv is absent after a
+    ## kernel update until a manual rebuild. gcc alone is insufficient: the build also needs make
+    ## and binutils (ld, objcopy).
+    install_pkg gcc make binutils udev
   fi
 
   virtualbox_cache_version_cmd=('apt-cache' 'search' '--names-only' '--quiet' '^virtualbox-[[:digit:]]{1,2}\.[[:digit:]]{1,2}$')
