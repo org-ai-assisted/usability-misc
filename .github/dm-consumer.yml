@@ -19,3 +19,12 @@ dist-ai-tests:
   ## whose inlined log_run needs stecho / sanitize-string. helper-scripts: true
   ## checks it out and (via dist-ai-tests-all) exports HELPER_SCRIPTS_PATH.
   helper-scripts: true
+
+  ## dist-installer-cli-tests also carries the virtualbox-host toolchain drift guards
+  ## (virtualbox_host_toolchain_consistency_test, virtualbox_recommends_coverage_test),
+  ## which read kicksecure-meta-packages/debian/control -- a SEPARATE derivative-maker
+  ## package absent from this component's standalone CI checkout. They correctly emit a
+  ## target-absent SKIP there; authorize it so the suite's other cases still gate while
+  ## the vbox guards run where their cross-component target exists (the dm build).
+  allow-skip:
+    - dist-installer-cli-tests
