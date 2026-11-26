@@ -28,22 +28,23 @@ fi
 ## style-ok: no-has -- self-contained.
 command -v git >/dev/null || exit 1
 
-toplevel="$(git rev-parse --show-toplevel)"
-target="${toplevel}/usr/share/usability-misc/dist-installer-cli-standalone"
-template="${toplevel}/usr/bin/dist-installer-cli"
-base_name_target="${target##*/}"
-
 ## debian/control cannot Build-Depend on helper-scripts without severely
 ## complicating our build setup. Every supported caller exports
 ## HELPER_SCRIPTS_PATH at the pinned helper-scripts checkout (help-steps/pre,
 ## parse-cmd, variables; dist-ai-tests-all in CI). Refuse when unset rather
 ## than silently inlining the installed /usr/libexec copy, which drifts from
-## the pinned checkout.
+## the pinned checkout. Validated before the git work below so the actionable
+## error is deterministic regardless of the current directory's git state.
 if [ -z "${HELPER_SCRIPTS_PATH:-}" ]; then
   printf '%s\n' "${0}: ERROR: HELPER_SCRIPTS_PATH is unset. Set it to the helper-scripts checkout (the build and CI export it)." >&2
   exit 1
 fi
 helper_path="${HELPER_SCRIPTS_PATH}/usr/libexec/helper-scripts/"
+
+toplevel="$(git rev-parse --show-toplevel)"
+target="${toplevel}/usr/share/usability-misc/dist-installer-cli-standalone"
+template="${toplevel}/usr/bin/dist-installer-cli"
+base_name_target="${target##*/}"
 
 if ! test -d "${helper_path}" ; then
   printf '%s\n' "${0}: ERROR: directory helper_path '${helper_path}' does not exist!" >&2
