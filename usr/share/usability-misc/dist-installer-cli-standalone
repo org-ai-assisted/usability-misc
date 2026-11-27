@@ -287,16 +287,23 @@ br_add() {
 }
 
 br_add_to_file() {
-  local file_name="$1"
+  local file_name br_tmp line
+  file_name="$1"
 
   test -f "${file_name}"
-  safe-rm -f -- "${file_name}_br"
-  touch -- "${file_name}_br"
 
-  local line
+  ## Produce "${file_name}_br" WITHOUT ever opening it in place: build the
+  ## content in an unpredictable, exclusively-created temp in the SAME directory
+  ## (mktemp -> O_EXCL|0600, so it can never be a pre-planted symlink), then
+  ## atomically rename it over the final name. rename(2) REPLACES a symlink at
+  ## the destination instead of following it, so root never writes through an
+  ## attacker's link -- the bash-reachable equivalent of O_NOFOLLOW, no helper
+  ## binary, safe for ANY caller regardless of the destination directory.
+  br_tmp="$(mktemp -- "${file_name}.br.XXXXXX")"
   while IFS= read -r line || [ -n "${line}" ]; do
-    printf '%s\n' "${line}<br />" | tee -a -- "${file_name}_br" >/dev/null
-  done <"${file_name}"
+    printf '%s\n' "${line}<br />"
+  done <"${file_name}" >"${br_tmp}"
+  mv --force --no-target-directory -- "${br_tmp}" "${file_name}_br"
 }
 
 read_integer_file() {
@@ -1116,8 +1123,9 @@ fi
 
 ## NOTE: Must not include bashisms!
 
-## NOTE: Fully installed packages only!
-##       'dpkg-query' output 'install ok installed' only.
+## NOTE: Fully installed packages only (third field 'installed'). The want
+##       field may be 'install' or 'hold' -- a held package IS installed
+##       (apt-mark hold only pins the version), so both count as installed.
 
 ## NOTE: code duplication: Function pkg_installed is duplicated elsewhere in derivative-maker source code.
 
@@ -1137,8 +1145,10 @@ pkg_installed() {
    error_flag=$(printf '%s' "${dpkg_query_output}" | awk '{print $2}')
    status=$(printf '%s' "${dpkg_query_output}" | awk '{print $3}')
 
-   if ! [ "${want}" = 'install' ]; then
-      true "$0: INFO: package '${package_name}' want '${want}' is not 'install'."
+   ## A held package ('hold ok installed') is installed; apt-mark hold only
+   ## pins its version. Accept 'hold' alongside 'install'.
+   if [ "${want}" != 'install' ] && [ "${want}" != 'hold' ]; then
+      true "$0: INFO: package '${package_name}' want '${want}' is neither 'install' nor 'hold'."
       return 1
    fi
    if ! [ "${error_flag}" = 'ok' ]; then
@@ -7083,6 +7093,7 @@ flocker_path_substituted="${flocker_path_substituted//./_dot_}"
 flocker_lockfile="${flocker_temp_folder}/${flocker_path_substituted}"
 
 if ! test -f "${flocker_lockfile}"; then
+  ## style-ok: lpe-symlink-follow -- lockfile under /run/user/${EUID} (0700, per-uid; root uses /run/user/0); no cross-user symlink plant.
   touch -- "${flocker_lockfile}"
 fi
 
