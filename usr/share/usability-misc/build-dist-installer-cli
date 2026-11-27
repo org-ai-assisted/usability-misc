@@ -41,15 +41,18 @@ if [ -z "${HELPER_SCRIPTS_PATH:-}" ]; then
 fi
 helper_path="${HELPER_SCRIPTS_PATH}/usr/libexec/helper-scripts/"
 
-toplevel="$(git rev-parse --show-toplevel)"
-target="${toplevel}/usr/share/usability-misc/dist-installer-cli-standalone"
-template="${toplevel}/usr/bin/dist-installer-cli"
-base_name_target="${target##*/}"
-
+## Validate the helper path BEFORE the git lookup: with a set-but-nonexistent
+## HELPER_SCRIPTS_PATH in a non-git tree, errexit would otherwise exit at
+## 'git rev-parse' and report git's error, masking the actionable helper-path one.
 if ! test -d "${helper_path}" ; then
   printf '%s\n' "${0}: ERROR: directory helper_path '${helper_path}' does not exist!" >&2
   exit 1
 fi
+
+toplevel="$(git rev-parse --show-toplevel)"
+target="${toplevel}/usr/share/usability-misc/dist-installer-cli-standalone"
+template="${toplevel}/usr/bin/dist-installer-cli"
+base_name_target="${target##*/}"
 
 canonical_helper_dir="/usr/libexec/helper-scripts/"
 ## TODO: This is a no-op, why do we need this?
