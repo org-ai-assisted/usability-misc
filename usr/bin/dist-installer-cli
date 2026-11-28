@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 ## Copyright (C) 2023 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
@@ -140,10 +140,11 @@ if ! has sanitize-string; then
 fi
 if ! has sanitize-echo; then
   sanitize-echo() {
-    ## FIXME: This will print things the user doesn't want to see like the
-    ## end-of-options marker and the --max-length argument. Maybe just print
-    ## the last argument?
-    printf '%s\n' "$*"
+    ## Fallback when sanitize-echo is unavailable: print only the last
+    ## positional (the message). Callers pass '--max-length N -- "<msg>"', so
+    ## the message is always the last arg; printing "$*" would also emit the
+    ## option words and end-of-options marker.
+    printf '%s\n' "${@: -1}"
   }
 fi
 if [ -x /usr/bin/safe-rm ]; then
